@@ -1,0 +1,150 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  RECEPTIONIST
+  TECHNICIAN
+  DELIVERY_STAFF
+  CUSTOMER
+}
+
+enum RepairStatus {
+  SUBMITTED
+  UNDER_INSPECTION
+  AWAITING_APPROVAL
+  APPROVED
+  IN_REPAIR
+  REPAIR_COMPLETED
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CLOSED
+  CANCELLED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  REASSIGNED
+}
+
+enum DeliveryType {
+  PICKUP
+  DELIVERY
+}
+
+enum DeliveryStatus {
+  SCHEDULED
+  ASSIGNED
+  IN_TRANSIT
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(191)
+  passwordHash String   @db.VarChar(255)
+  role         UserRole @default(CUSTOMER)
+  phone        String?  @db.VarChar(20)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repairRequests      RepairRequest[]       @relation("CustomerRepairs")
+  technicianAssignments TechnicianAssignment[] @relation("AssignedTechnician")
+  deliveryAssignments  PickupDelivery[]      @relation("AssignedDeliveryStaff")
+}
+
+model RepairRequest {
+  id                Int          @id @default(autoincrement())
+  requestNumber     String       @unique @db.VarChar(30)
+  customerId        Int
+  deviceType        String       @db.VarChar(100)
+  deviceBrand       String?      @db.VarChar(100)
+  deviceModel       String?      @db.VarChar(100)
+  serialNumber      String?      @db.VarChar(100)
+  issueDescription  String       @db.Text
+  status            RepairStatus @default(SUBMITTED)
+  estimatedCost     Decimal?     @db.Decimal(10, 2)
+  finalCost         Decimal?     @db.Decimal(10, 2)
+  receivedAt        DateTime     @default(now())
+  repairCompletedAt DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  customer     User                   @relation("CustomerRepairs", fields: [customerId], references: [id])
+  assignments  TechnicianAssignment[]
+  deliveries   PickupDelivery[]
+  statusHistory RepairStatusHistory[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model TechnicianAssignment {
+  id           Int              @id @default(autoincrement())
+  repairId     Int
+  technicianId Int
+  status       AssignmentStatus @default(ASSIGNED)
+  assignedAt   DateTime         @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?          @db.Text
+
+  repair     RepairRequest @relation(fields: [repairId], references: [id])
+  technician User          @relation("AssignedTechnician", fields: [technicianId], references: [id])
+
+  @@index([repairId])
+  @@index([technicianId])
+}
+
+model PickupDelivery {
+  id               Int            @id @default(autoincrement())
+  repairId         Int
+  assignedStaffId  Int?
+  type             DeliveryType
+  status           DeliveryStatus @default(SCHEDULED)
+  scheduledAt      DateTime
+  address          String         @db.Text
+  customerNotes    String?        @db.Text
+  completedAt      DateTime?
+  customerConfirmed Boolean       @default(false)
+  confirmedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  repair         RepairRequest @relation(fields: [repairId], references: [id])
+  assignedStaff  User?         @relation("AssignedDeliveryStaff", fields: [assignedStaffId], references: [id])
+
+  @@index([repairId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model RepairStatusHistory {
+  id          Int          @id @default(autoincrement())
+  repairId    Int
+  oldStatus   RepairStatus?
+  newStatus   RepairStatus
+  changedById Int?
+  note        String?      @db.Text
+  changedAt   DateTime     @default(now())
+
+  repair RepairRequest @relation(fields: [repairId], references: [id])
+
+  @@index([repairId, changedAt])
+}

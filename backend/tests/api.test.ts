@@ -127,7 +127,9 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .set("Authorization", `Bearer ${customer2Token}`);
 
     expect(forbiddenRes.status).toBe(403);
-    expect(forbiddenRes.body.error).toContain("Access denied: You do not own this repair request");
+    expect(forbiddenRes.body.error).toContain(
+      "Access denied: You do not own this repair request",
+    );
   });
 
   // --- 3. Doorstep Pickup Scheduling on Submission ---
@@ -156,7 +158,9 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(repairDetails.body.data.deliveries.length).toBe(1);
     expect(repairDetails.body.data.deliveries[0].type).toBe("PICKUP");
     expect(repairDetails.body.data.deliveries[0].status).toBe("ASSIGNED");
-    expect(repairDetails.body.data.deliveries[0].assignedPartnerId).toBeDefined();
+    expect(
+      repairDetails.body.data.deliveries[0].assignedPartnerId,
+    ).toBeDefined();
     expect(repairDetails.body.data.vendorId).toBeDefined();
   });
 
@@ -179,7 +183,8 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({
         decision: "REJECT",
-        notes: "Device is unbranded and heavily corroded with no replacement components available.",
+        notes:
+          "Device is unbranded and heavily corroded with no replacement components available.",
       });
 
     expect(rejectRes.status).toBe(200);
@@ -210,13 +215,20 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     await request(app)
       .post(`/api/repairs/${estRepairId}/estimate`)
       .set("Authorization", `Bearer ${vendorToken}`)
-      .send({ estimatedCost: 12000, estimatedDays: 5, estimateNotes: "OEM display" });
+      .send({
+        estimatedCost: 12000,
+        estimatedDays: 5,
+        estimateNotes: "OEM display",
+      });
 
     // Customer rejects
     const rejectEstRes = await request(app)
       .patch(`/api/repairs/${estRepairId}/estimate`)
       .set("Authorization", `Bearer ${customer2Token}`)
-      .send({ action: "REJECT", notes: "Cost exceeds market value of tablet." });
+      .send({
+        action: "REJECT",
+        notes: "Cost exceeds market value of tablet.",
+      });
 
     expect(rejectEstRes.status).toBe(200);
     expect(rejectEstRes.body.data.status).toBe("CANCELLED");
@@ -235,7 +247,11 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     await request(app)
       .post(`/api/repairs/${successRepairId}/estimate`)
       .set("Authorization", `Bearer ${vendorToken}`)
-      .send({ estimatedCost: 4500, estimatedDays: 3, estimateNotes: "Keyboard replacement" });
+      .send({
+        estimatedCost: 4500,
+        estimatedDays: 3,
+        estimateNotes: "Keyboard replacement",
+      });
 
     // Customer approves
     await request(app)
@@ -256,7 +272,9 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .send({ diagnosisNotes: "Sneha trying to modify Amitabh's task." });
 
     expect(unauthTechRes.status).toBe(403);
-    expect(unauthTechRes.body.error).toContain("You are not assigned to this repair");
+    expect(unauthTechRes.body.error).toContain(
+      "You are not assigned to this repair",
+    );
   });
 
   // --- 7. Successful Repair Completion by Assigned Tech 1 ---
@@ -264,7 +282,10 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     const completeRes = await request(app)
       .patch(`/api/repairs/${successRepairId}/complete`)
       .set("Authorization", `Bearer ${tech1Token}`)
-      .send({ finalCost: 4500, notes: "Keyboard and thermal paste replaced. Stress test passed." });
+      .send({
+        finalCost: 4500,
+        notes: "Keyboard and thermal paste replaced. Stress test passed.",
+      });
 
     expect(completeRes.status).toBe(200);
     expect(completeRes.body.data.status).toBe("REPAIR_COMPLETED");
@@ -303,7 +324,10 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     const failRes = await request(app)
       .patch(`/api/delivery/${failedDeliveryId}/status`)
       .set("Authorization", `Bearer ${delivery1Token}`)
-      .send({ status: "FAILED", deliveryNotes: "Door locked, customer phone switched off." });
+      .send({
+        status: "FAILED",
+        deliveryNotes: "Door locked, customer phone switched off.",
+      });
 
     expect(failRes.status).toBe(200);
     expect(failRes.body.data.status).toBe("FAILED");
@@ -350,19 +374,28 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     await request(app)
       .patch(`/api/delivery/${testDeliveryId}/status`)
       .set("Authorization", `Bearer ${delivery1Token}`)
-      .send({ status: "IN_TRANSIT", deliveryNotes: "Second attempt, customer confirmed present." });
+      .send({
+        status: "IN_TRANSIT",
+        deliveryNotes: "Second attempt, customer confirmed present.",
+      });
 
     // 2. Move to COMPLETED
     await request(app)
       .patch(`/api/delivery/${testDeliveryId}/status`)
       .set("Authorization", `Bearer ${delivery1Token}`)
-      .send({ status: "COMPLETED", deliveryNotes: "Handed over to Ananya Sharma at doorstep." });
+      .send({
+        status: "COMPLETED",
+        deliveryNotes: "Handed over to Ananya Sharma at doorstep.",
+      });
 
     // 3. Customer confirms receipt -> Closes request!
     const confirmRes = await request(app)
       .patch(`/api/delivery/${testDeliveryId}/confirm-receipt`)
       .set("Authorization", `Bearer ${customer1Token}`)
-      .send({ notes: "Received ThinkPad, keyboard working perfectly. Highly satisfied!" });
+      .send({
+        notes:
+          "Received ThinkPad, keyboard working perfectly. Highly satisfied!",
+      });
 
     expect(confirmRes.status).toBe(200);
     expect(confirmRes.body.data.delivery.customerConfirmed).toBe(true);
@@ -393,5 +426,77 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .patch("/api/notifications/read-all")
       .set("Authorization", `Bearer ${customer1Token}`);
     expect(readAllRes.status).toBe(200);
+  });
+
+  // --- User Registration Tests (SCRUM-112) ---
+
+  it("registers a new customer and allows subsequent login", async () => {
+    const email = `registration_${Date.now()}@example.com`;
+    const password = "SecurePass@123";
+
+    const registerRes = await request(app).post("/api/auth/register").send({
+      name: "Registration Test",
+      email,
+      password,
+    });
+
+    expect(registerRes.status).toBe(201);
+    expect(registerRes.body.success).toBe(true);
+    expect(registerRes.body.message).toBe("Registration successful");
+    expect(registerRes.body.data.user.email).toBe(email);
+    expect(registerRes.body.data.user.role).toBe("CUSTOMER");
+    expect(registerRes.body.data.user).not.toHaveProperty("passwordHash");
+
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email, password });
+
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.success).toBe(true);
+    expect(loginRes.body.data.user.email).toBe(email);
+  });
+
+  it("rejects duplicate registration using the same email", async () => {
+    const email = `duplicate_${Date.now()}@example.com`;
+    const user = {
+      name: "Duplicate Test",
+      email,
+      password: "SecurePass@123",
+    };
+
+    const first = await request(app).post("/api/auth/register").send(user);
+
+    expect(first.status).toBe(201);
+
+    const second = await request(app).post("/api/auth/register").send(user);
+
+    expect(second.status).toBe(409);
+  });
+
+  it.each([
+    {
+      name: "missing name",
+      payload: { email: "missingname@example.com", password: "SecurePass@123" },
+    },
+    {
+      name: "invalid email",
+      payload: {
+        name: "Invalid Email",
+        email: "not-an-email",
+        password: "SecurePass@123",
+      },
+    },
+    {
+      name: "short password",
+      payload: {
+        name: "Short Password",
+        email: "shortpass@example.com",
+        password: "123",
+      },
+    },
+  ])("rejects registration with $name", async ({ payload }) => {
+    const res = await request(app).post("/api/auth/register").send(payload);
+
+    expect(res.status).toBe(400);
   });
 });

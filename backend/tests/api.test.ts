@@ -483,6 +483,26 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(res.status).toBe(401);
   });
 
+  it("retrieves the updated profile after a profile change", async () => {
+    const updatedName = `Profile Round Trip ${Date.now()}`;
+
+    const updateRes = await request(app)
+      .patch("/api/users/profile")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({ name: updatedName });
+
+    expect(updateRes.status).toBe(200);
+
+    const profileRes = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(profileRes.status).toBe(200);
+    expect(profileRes.body.data.id).toBe(customer1Id);
+    expect(profileRes.body.data.name).toBe(updatedName);
+    expect(profileRes.body.data).not.toHaveProperty("passwordHash");
+  });
+
   // --- 11. In-App Notifications Verification ---
   it("Customer receives in-app notifications throughout the lifecycle", async () => {
     const notifRes = await request(app)

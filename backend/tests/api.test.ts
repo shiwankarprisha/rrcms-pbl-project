@@ -427,6 +427,62 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(res.status).toBe(401);
   });
 
+  // --- Profile Update Tests (SCRUM-124) ---
+
+  it("PATCH /api/users/profile updates the authenticated user's name", async () => {
+    const updatedName = `Profile Test ${Date.now()}`;
+
+    const res = await request(app)
+      .patch("/api/users/profile")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({ name: updatedName });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe(customer1Id);
+    expect(res.body.data.name).toBe(updatedName);
+    expect(res.body.data.email).toBe("customer1@rrcms.local");
+    expect(res.body.data.role).toBe("CUSTOMER");
+    expect(res.body.data).not.toHaveProperty("passwordHash");
+  });
+
+  it("PATCH /api/users/profile updates the authenticated user's phone", async () => {
+    const phone = "9876543210";
+
+    const res = await request(app)
+      .patch("/api/users/profile")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({ phone });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(customer1Id);
+    expect(res.body.data.phone).toBe(phone);
+  });
+
+  it("PATCH /api/users/profile does not allow changing protected fields", async () => {
+    const res = await request(app)
+      .patch("/api/users/profile")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        name: "Protected Field Test",
+        email: "changed@example.com",
+        role: "ADMIN",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.name).toBe("Protected Field Test");
+    expect(res.body.data.email).toBe("customer1@rrcms.local");
+    expect(res.body.data.role).toBe("CUSTOMER");
+  });
+
+  it("PATCH /api/users/profile rejects unauthenticated requests", async () => {
+    const res = await request(app)
+      .patch("/api/users/profile")
+      .send({ name: "Unauthenticated Update" });
+
+    expect(res.status).toBe(401);
+  });
+
   // --- 11. In-App Notifications Verification ---
   it("Customer receives in-app notifications throughout the lifecycle", async () => {
     const notifRes = await request(app)

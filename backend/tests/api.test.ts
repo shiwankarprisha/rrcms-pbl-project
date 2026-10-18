@@ -403,6 +403,30 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(confirmRes.body.data.repair.closedAt).toBeDefined();
   });
 
+  // --- Profile Retrieval Tests (SCRUM-123) ---
+
+  it("GET /api/auth/me returns the authenticated user's safe profile", async () => {
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe(customer1Id);
+    expect(res.body.data.name).toBeTruthy();
+    expect(res.body.data.email).toBe("customer1@rrcms.local");
+    expect(res.body.data.role).toBe("CUSTOMER");
+    expect(res.body.data).toHaveProperty("phone");
+    expect(res.body.data).toHaveProperty("createdAt");
+    expect(res.body.data).not.toHaveProperty("passwordHash");
+  });
+
+  it("GET /api/auth/me rejects requests without an authentication token", async () => {
+    const res = await request(app).get("/api/auth/me");
+
+    expect(res.status).toBe(401);
+  });
+
   // --- 11. In-App Notifications Verification ---
   it("Customer receives in-app notifications throughout the lifecycle", async () => {
     const notifRes = await request(app)
@@ -501,60 +525,51 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
   });
 });
 
+// --- User Login Tests (SCRUM-116) ---
 
-  // --- User Login Tests (SCRUM-116) ---
-
-  it("logs in with valid credentials and returns a safe user object", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({
-        email: "customer1@rrcms.local",
-        password: "Password@123",
-      });
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.message).toBe("Login successful");
-    expect(res.body.data.token).toBeTruthy();
-    expect(res.body.data.user.email).toBe("customer1@rrcms.local");
-    expect(res.body.data.user).not.toHaveProperty("passwordHash");
+it("logs in with valid credentials and returns a safe user object", async () => {
+  const res = await request(app).post("/api/auth/login").send({
+    email: "customer1@rrcms.local",
+    password: "Password@123",
   });
 
-  it("rejects login with an incorrect password", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({
-        email: "customer1@rrcms.local",
-        password: "WrongPassword123",
-      });
+  expect(res.status).toBe(200);
+  expect(res.body.success).toBe(true);
+  expect(res.body.message).toBe("Login successful");
+  expect(res.body.data.token).toBeTruthy();
+  expect(res.body.data.user.email).toBe("customer1@rrcms.local");
+  expect(res.body.data.user).not.toHaveProperty("passwordHash");
+});
 
-    expect(res.status).toBe(401);
+it("rejects login with an incorrect password", async () => {
+  const res = await request(app).post("/api/auth/login").send({
+    email: "customer1@rrcms.local",
+    password: "WrongPassword123",
   });
 
-  it("rejects login for an unknown email", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({
-        email: "unknown_login_user@example.com",
-        password: "Password@123",
-      });
+  expect(res.status).toBe(401);
+});
 
-    expect(res.status).toBe(401);
+it("rejects login for an unknown email", async () => {
+  const res = await request(app).post("/api/auth/login").send({
+    email: "unknown_login_user@example.com",
+    password: "Password@123",
   });
 
-  it.each([
-    {
-      name: "invalid email",
-      payload: { email: "not-an-email", password: "Password@123" },
-    },
-    {
-      name: "missing password",
-      payload: { email: "customer1@rrcms.local", password: "" },
-    },
-  ])("rejects login with $name", async ({ payload }) => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send(payload);
+  expect(res.status).toBe(401);
+});
 
-    expect(res.status).toBe(400);
-  });
+it.each([
+  {
+    name: "invalid email",
+    payload: { email: "not-an-email", password: "Password@123" },
+  },
+  {
+    name: "missing password",
+    payload: { email: "customer1@rrcms.local", password: "" },
+  },
+])("rejects login with $name", async ({ payload }) => {
+  const res = await request(app).post("/api/auth/login").send(payload);
+
+  expect(res.status).toBe(400);
+});

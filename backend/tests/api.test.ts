@@ -201,6 +201,65 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(res.body.data.imageUrl).toBeNull();
   });
 
+  it("creates a repair request with an uploaded device image", async () => {
+    const imageBuffer = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/2ioAAAAASUVORK5CYII=",
+      "base64",
+    );
+
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .field("deviceType", "Smartphone")
+      .field("deviceBrand", "Samsung")
+      .field("deviceModel", "Galaxy S25")
+      .field("issueDescription", "Screen flickers during normal use.")
+      .attach("image", imageBuffer, {
+        filename: "device.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.imageUrl).toMatch(/^\/uploads\/device-.+\.png$/);
+  });
+
+  it("rejects an unsupported file type for a repair image", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .field("deviceType", "Smartphone")
+      .field("issueDescription", "Screen flickers during normal use.")
+      .attach("image", Buffer.from("not an image"), {
+        filename: "notes.txt",
+        contentType: "text/plain",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toContain(
+      "Only JPEG, PNG, and WebP images are allowed",
+    );
+  });
+
+  it("rejects an image larger than 5 MB", async () => {
+    const oversizedImage = Buffer.alloc(5 * 1024 * 1024 + 1, 0);
+
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .field("deviceType", "Smartphone")
+      .field("issueDescription", "Screen flickers during normal use.")
+      .attach("image", oversizedImage, {
+        filename: "oversized.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(413);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe("Image must be 5 MB or smaller");
+  });
+
   // --- 3. Doorstep Pickup Scheduling on Submission ---
   it("Customer submits repair with Doorstep Pickup requested in Nagpur", async () => {
     const res = await request(app)

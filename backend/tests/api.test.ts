@@ -454,6 +454,23 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(rejectEstRes.status).toBe(200);
     expect(rejectEstRes.body.data.status).toBe("CANCELLED");
     expect(rejectEstRes.body.data.estimateStatus).toBe("REJECTED");
+
+    const trackingRes = await request(app)
+      .get(`/api/repairs/${estRepairId}`)
+      .set("Authorization", `Bearer ${customer2Token}`);
+
+    expect(trackingRes.status).toBe(200);
+    expect(trackingRes.body.data.status).toBe("CANCELLED");
+
+    const history = trackingRes.body.data.statusHistory;
+    expect(Array.isArray(history)).toBe(true);
+    expect(
+      history.some(
+        (entry: { oldStatus: string | null; newStatus: string }) =>
+          entry.oldStatus === "AWAITING_APPROVAL" &&
+          entry.newStatus === "CANCELLED",
+      ),
+    ).toBe(true);
   });
 
   // --- 6. Failure Path 3: Unauthorized Technician Progress Update ---

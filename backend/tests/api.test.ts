@@ -79,6 +79,19 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     customer2Id = cust2Res.body.data.user.id;
   });
 
+  it("rejects repair submission by a non-customer role", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        deviceType: "Smartphone",
+        issueDescription: "Screen flickers during normal use.",
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+
   // --- 1. Health Checks ---
   it("GET /api/health should return ok", async () => {
     const res = await request(app).get("/api/health");

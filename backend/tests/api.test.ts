@@ -132,6 +132,32 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     );
   });
 
+  it("creates a repair request with the expected response fields", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Smartphone",
+        deviceBrand: "Samsung",
+        deviceModel: "Galaxy S25",
+        issueDescription: "Screen flickers during normal use.",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBeDefined();
+    expect(res.body.data.requestNumber).toMatch(/^RRCMS-\d{8}-\d{4}$/);
+    expect(res.body.data.customerId).toBe(customer1Id);
+    expect(res.body.data.deviceType).toBe("Smartphone");
+    expect(res.body.data.deviceBrand).toBe("Samsung");
+    expect(res.body.data.deviceModel).toBe("Galaxy S25");
+    expect(res.body.data.issueDescription).toBe(
+      "Screen flickers during normal use.",
+    );
+    expect(res.body.data.status).toBe("SUBMITTED");
+    expect(res.body.data.imageUrl).toBeNull();
+  });
+
   // --- 3. Doorstep Pickup Scheduling on Submission ---
   it("Customer submits repair with Doorstep Pickup requested in Nagpur", async () => {
     const res = await request(app)

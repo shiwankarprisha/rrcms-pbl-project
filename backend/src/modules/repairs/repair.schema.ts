@@ -1,38 +1,53 @@
 import { z } from "zod";
 
 export const createRepairSchema = z.object({
-  deviceType: z.string().min(1, "Device type is required").max(100),
+  deviceType: z
+    .string()
+    .trim()
+    .min(1, "Device type is required")
+    .max(100, "Device type must not exceed 100 characters"),
   deviceBrand: z
     .string()
     .max(100)
     .optional()
     .nullable()
-    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
+    .transform((val) =>
+      val && val.trim().length > 0 ? val.trim() : undefined,
+    ),
   deviceModel: z
     .string()
     .max(100)
     .optional()
     .nullable()
-    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
+    .transform((val) =>
+      val && val.trim().length > 0 ? val.trim() : undefined,
+    ),
   serialNumber: z
     .string()
     .max(100)
     .optional()
     .nullable()
-    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
-  issueDescription: z.string().min(5, "Issue description must be at least 5 characters"),
+    .transform((val) =>
+      val && val.trim().length > 0 ? val.trim() : undefined,
+    ),
+  issueDescription: z
+    .string()
+    .min(5, "Issue description must be at least 5 characters"),
   pickupRequested: z
     .union([z.boolean(), z.string()])
     .optional()
     .transform((val) => {
-      if (typeof val === "string") return val.toLowerCase() === "true" || val === "1";
+      if (typeof val === "string")
+        return val.toLowerCase() === "true" || val === "1";
       return Boolean(val);
     }),
   pickupAddress: z
     .string()
     .optional()
     .nullable()
-    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
+    .transform((val) =>
+      val && val.trim().length > 0 ? val.trim() : undefined,
+    ),
 });
 
 export const verifyRepairSchema = z.object({

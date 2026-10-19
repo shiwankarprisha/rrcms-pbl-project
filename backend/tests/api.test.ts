@@ -132,6 +132,49 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     );
   });
 
+  it("rejects a repair request when device type is missing", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceBrand: "Samsung",
+        deviceModel: "Galaxy S25",
+        issueDescription: "Screen flickers during normal use.",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe("Validation failed");
+  });
+
+  it("rejects a repair request with a short issue description", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Smartphone",
+        issueDescription: "Bad",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe("Validation failed");
+  });
+
+  it("rejects a repair request with a whitespace-only device type", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "   ",
+        issueDescription: "Screen flickers during normal use.",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe("Validation failed");
+  });
+
   it("creates a repair request with the expected response fields", async () => {
     const res = await request(app)
       .post("/api/repairs")

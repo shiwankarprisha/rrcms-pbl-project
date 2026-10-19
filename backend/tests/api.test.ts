@@ -130,6 +130,35 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     }
   });
 
+  it("returns status history for a repair request", async () => {
+    const createdRes = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Smartphone",
+        deviceBrand: "Samsung",
+        deviceModel: "History Test",
+        issueDescription: "Verify initial repair status history.",
+      });
+
+    expect(createdRes.status).toBe(201);
+    const repairId = createdRes.body.data.id;
+
+    const detailsRes = await request(app)
+      .get(`/api/repairs/${repairId}`)
+      .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(detailsRes.status).toBe(200);
+    expect(Array.isArray(detailsRes.body.data.statusHistory)).toBe(true);
+    expect(detailsRes.body.data.statusHistory.length).toBeGreaterThan(0);
+
+    const initialEntry = detailsRes.body.data.statusHistory[0];
+    expect(initialEntry.newStatus).toBe("SUBMITTED");
+    expect(initialEntry.oldStatus).toBeNull();
+    expect(initialEntry.changedAt).toBeTruthy();
+    expect(Number.isNaN(Date.parse(initialEntry.changedAt))).toBe(false);
+  });
+
   it("rejects repair submission by a non-customer role", async () => {
     const res = await request(app)
       .post("/api/repairs")

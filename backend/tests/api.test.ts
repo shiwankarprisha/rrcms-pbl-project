@@ -79,6 +79,57 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     customer2Id = cust2Res.body.data.user.id;
   });
 
+  it("returns only the authenticated customer's repair requests", async () => {
+    const createdRes = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Smartphone",
+        deviceBrand: "Samsung",
+        deviceModel: "Galaxy Test",
+        issueDescription: "Screen flickers during normal use.",
+      });
+
+    expect(createdRes.status).toBe(201);
+    const createdRepair = createdRes.body.data;
+
+    const customer1Res = await request(app)
+      .get("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(customer1Res.status).toBe(200);
+    expect(customer1Res.body.success).toBe(true);
+    expect(Array.isArray(customer1Res.body.data)).toBe(true);
+    expect(
+      customer1Res.body.data.some(
+        (repair: { id: number }) => repair.id === createdRepair.id,
+      ),
+    ).toBe(true);
+
+    for (const repair of customer1Res.body.data) {
+      expect(repair.customerId).toBe(customer1Id);
+      expect(repair.requestNumber).toBeTruthy();
+      expect(repair).toHaveProperty("status");
+      expect(repair).toHaveProperty("deviceType");
+    }
+
+    const customer2Res = await request(app)
+      .get("/api/repairs")
+      .set("Authorization", `Bearer ${customer2Token}`);
+
+    expect(customer2Res.status).toBe(200);
+    expect(customer2Res.body.success).toBe(true);
+    expect(
+      customer2Res.body.data.some(
+        (repair: { id: number }) => repair.id === createdRepair.id,
+      ),
+    ).toBe(false);
+
+    for (const repair of customer2Res.body.data) {
+      expect(repair.customerId).toBe(customer2Id);
+    }
+  });
+
   it("rejects repair submission by a non-customer role", async () => {
     const res = await request(app)
       .post("/api/repairs")

@@ -639,6 +639,26 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(Number(completedDetailsRes.body.data.finalCost)).toBe(4500);
   });
 
+  it("rejects delivery scheduling with an invalid delivery type", async () => {
+    const response = await request(app)
+      .post("/api/delivery/schedule")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        repairId: successRepairId,
+        type: "INVALID",
+        scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+        address: "Flat 202, Gokul Enclave, Nagpur",
+        assignedPartnerId: deliveryPartner1Id,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toBe("Validation failed");
+    expect(response.body.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "type" })]),
+    );
+  });
+
   // --- 8. Failure Path 4 & Solution: Delivery Attempt Fails & Reverts Status for Reschedule ---
   it("Delivery failure reverts repair status to READY_FOR_PICKUP and enables Rescheduling", async () => {
     // Admin schedules first return delivery

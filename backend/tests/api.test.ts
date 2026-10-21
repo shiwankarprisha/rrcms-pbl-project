@@ -432,8 +432,8 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ decision: "ACCEPT", notes: "Accepted" });
 
-    // Vendor estimates ₹12,000 (too high)
-    await request(app)
+    // Vendor generates estimate
+    const createEstimateRes = await request(app)
       .post(`/api/repairs/${estRepairId}/estimate`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({
@@ -441,6 +441,17 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
         estimatedDays: 5,
         estimateNotes: "OEM display",
       });
+
+    expect(createEstimateRes.status).toBe(200);
+
+    const savedEstimateRes = await request(app)
+      .get(`/api/repairs/${estRepairId}`)
+      .set("Authorization", `Bearer ${customer2Token}`);
+
+    expect(savedEstimateRes.status).toBe(200);
+    expect(Number(savedEstimateRes.body.data.estimatedCost)).toBe(12000);
+    expect(savedEstimateRes.body.data.estimatedDays).toBe(5);
+    expect(savedEstimateRes.body.data.estimateStatus).toBe("PENDING");
 
     // Customer rejects
     const rejectEstRes = await request(app)

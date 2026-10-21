@@ -484,6 +484,58 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     ).toBe(true);
   });
 
+  it("technicians only see repairs assigned to them", async () => {
+    // Prepare an approved repair for technician assignment
+    await request(app)
+      .patch(`/api/repairs/${successRepairId}/verify`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({ decision: "ACCEPT", notes: "Ready for repair" });
+
+    await request(app)
+      .post(`/api/repairs/${successRepairId}/estimate`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        estimatedCost: 4500,
+        estimatedDays: 3,
+        estimateNotes: "Keyboard replacement",
+      });
+
+    await request(app)
+      .patch(`/api/repairs/${successRepairId}/estimate`)
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({ action: "APPROVE" });
+
+    const assignRes = await request(app)
+      .post(`/api/repairs/${successRepairId}/assign`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({ technicianId: tech1Id, notes: "Assigned for access test" });
+
+    expect(assignRes.status).toBe(200);
+
+    const tech1RepairsRes = await request(app)
+      .get("/api/repairs")
+      .set("Authorization", `Bearer ${tech1Token}`);
+
+    const tech2RepairsRes = await request(app)
+      .get("/api/repairs")
+      .set("Authorization", `Bearer ${tech2Token}`);
+
+    expect(tech1RepairsRes.status).toBe(200);
+    expect(tech2RepairsRes.status).toBe(200);
+
+    expect(
+      tech1RepairsRes.body.data.some(
+        (repair: { id: number }) => repair.id === successRepairId,
+      ),
+    ).toBe(true);
+
+    expect(
+      tech2RepairsRes.body.data.some(
+        (repair: { id: number }) => repair.id === successRepairId,
+      ),
+    ).toBe(false);
+  });
+
   // --- 6. Failure Path 3: Unauthorized Technician Progress Update ---
   it("Technician 2 is blocked from updating a repair assigned to Technician 1", async () => {
     // Vendor accepts successRepairId

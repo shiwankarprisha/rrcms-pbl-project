@@ -130,7 +130,7 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     }
   });
 
-  it("returns status history for a repair request", async () => {
+  it("returns consistent status history and restricts access to the repair owner", async () => {
     const createdRes = await request(app)
       .post("/api/repairs")
       .set("Authorization", `Bearer ${customer1Token}`)
@@ -143,20 +143,30 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
 
     expect(createdRes.status).toBe(201);
     const repairId = createdRes.body.data.id;
+    expect(createdRes.body.data.status).toBe("SUBMITTED");
 
     const detailsRes = await request(app)
       .get(`/api/repairs/${repairId}`)
       .set("Authorization", `Bearer ${customer1Token}`);
 
     expect(detailsRes.status).toBe(200);
-    expect(Array.isArray(detailsRes.body.data.statusHistory)).toBe(true);
-    expect(detailsRes.body.data.statusHistory.length).toBeGreaterThan(0);
+    expect(detailsRes.body.data.status).toBe("SUBMITTED");
 
-    const initialEntry = detailsRes.body.data.statusHistory[0];
-    expect(initialEntry.newStatus).toBe("SUBMITTED");
+    const history = detailsRes.body.data.statusHistory;
+    expect(Array.isArray(history)).toBe(true);
+    expect(history.length).toBeGreaterThan(0);
+
+    const initialEntry = history[0];
+    expect(initialEntry.newStatus).toBe(detailsRes.body.data.status);
     expect(initialEntry.oldStatus).toBeNull();
     expect(initialEntry.changedAt).toBeTruthy();
     expect(Number.isNaN(Date.parse(initialEntry.changedAt))).toBe(false);
+
+    const forbiddenRes = await request(app)
+      .get(`/api/repairs/${repairId}`)
+      .set("Authorization", `Bearer ${customer2Token}`);
+
+    expect(forbiddenRes.status).toBe(403);
   });
 
   it("rejects repair submission by a non-customer role", async () => {

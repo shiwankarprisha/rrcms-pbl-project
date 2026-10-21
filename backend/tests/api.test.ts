@@ -619,6 +619,14 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
 
     expect(completeRes.status).toBe(200);
     expect(completeRes.body.data.status).toBe("REPAIR_COMPLETED");
+
+    const completedDetailsRes = await request(app)
+      .get(`/api/repairs/${successRepairId}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(completedDetailsRes.status).toBe(200);
+    expect(completedDetailsRes.body.data.status).toBe("REPAIR_COMPLETED");
+    expect(Number(completedDetailsRes.body.data.finalCost)).toBe(4500);
   });
 
   // --- 8. Failure Path 4 & Solution: Delivery Attempt Fails & Reverts Status for Reschedule ---

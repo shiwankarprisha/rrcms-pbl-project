@@ -508,11 +508,16 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .set("Authorization", `Bearer ${customer1Token}`)
       .send({ action: "APPROVE" });
 
-    // Assign Tech 1
-    await request(app)
+    // Assign Tech 1 and verify assignment
+    const assignRes = await request(app)
       .post(`/api/repairs/${successRepairId}/assign`)
       .set("Authorization", `Bearer ${vendorToken}`)
       .send({ technicianId: tech1Id, notes: "Assigned to Lead Tech" });
+
+    expect(assignRes.status).toBe(200);
+    expect(assignRes.body.data.repair.status).toBe("IN_REPAIR");
+    expect(assignRes.body.data.assignment.technicianId).toBe(tech1Id);
+    expect(assignRes.body.data.assignment.status).toBe("ASSIGNED");
 
     // Tech 2 tries to update notes -> must be 403 Forbidden
     const unauthTechRes = await request(app)

@@ -583,6 +583,30 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     );
   });
 
+  it("Technician 1 can record diagnosis and repair progress", async () => {
+    const progressRes = await request(app)
+      .patch(`/api/repairs/${successRepairId}/progress`)
+      .set("Authorization", `Bearer ${tech1Token}`)
+      .send({
+        diagnosisNotes: "Keyboard fault identified",
+        repairNotes: "Keyboard replacement in progress",
+      });
+
+    expect(progressRes.status).toBe(200);
+
+    const detailsRes = await request(app)
+      .get(`/api/repairs/${successRepairId}`)
+      .set("Authorization", `Bearer ${tech1Token}`);
+
+    expect(detailsRes.status).toBe(200);
+    expect(detailsRes.body.data.diagnosisNotes).toBe(
+      "Keyboard fault identified",
+    );
+    expect(detailsRes.body.data.repairNotes).toBe(
+      "Keyboard replacement in progress",
+    );
+  });
+
   // --- 7. Successful Repair Completion by Assigned Tech 1 ---
   it("Technician 1 completes the repair successfully", async () => {
     const completeRes = await request(app)

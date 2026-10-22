@@ -100,6 +100,34 @@ export class DeliveryService {
       }
     }
 
+    // Prevent a courier from receiving multiple active trips
+    // at the exact same scheduled time.
+    if (assignedPartnerId) {
+      const scheduledAt = new Date(input.scheduledAt);
+
+      const conflictingDelivery = await prisma.pickupDelivery.findFirst({
+        where: {
+          assignedPartnerId,
+          scheduledAt,
+          status: {
+            in: [
+              DeliveryStatus.SCHEDULED,
+              DeliveryStatus.ASSIGNED,
+              DeliveryStatus.IN_TRANSIT,
+            ],
+          },
+        },
+      });
+
+      if (conflictingDelivery) {
+        const error: any = new Error(
+          "Scheduling conflict: this courier already has an active trip at that time",
+        );
+        error.status = 409;
+        throw error;
+      }
+    }
+
     const initialStatus = assignedPartnerId
       ? DeliveryStatus.ASSIGNED
       : DeliveryStatus.SCHEDULED;

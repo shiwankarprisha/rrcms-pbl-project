@@ -440,22 +440,22 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
   });
 
   it("completing a doorstep pickup transitions repair to UNDER_INSPECTION", async () => {
-  const repairRes = await request(app)
-    .post("/api/repairs")
-    .set("Authorization", `Bearer ${customer1Token}`)
-    .send({
-      deviceType: "Laptop",
-      issueDescription: "Laptop keyboard is not responding.",
-      pickupRequested: true,
-      pickupAddress: "Flat 202, Dharampeth, Nagpur",
-    });
+    const repairRes = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Laptop",
+        issueDescription: "Laptop keyboard is not responding.",
+        pickupRequested: true,
+        pickupAddress: "Flat 202, Dharampeth, Nagpur",
+      });
 
     expect(repairRes.status).toBe(201);
     const repairId = repairRes.body.data.id;
 
     const detailsRes = await request(app)
-    .get(`/api/repairs/${repairId}`)
-    .set("Authorization", `Bearer ${customer1Token}`);
+      .get(`/api/repairs/${repairId}`)
+      .set("Authorization", `Bearer ${customer1Token}`);
 
     const pickup = detailsRes.body.data.deliveries.find(
       (delivery: { type: string }) => delivery.type === "PICKUP",
@@ -464,30 +464,28 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
 
     const partnerId = pickup.assignedPartnerId;
     const partnerToken =
-    partnerId === deliveryPartner1Id
-      ? delivery1Token
-      : delivery2Token;
+      partnerId === deliveryPartner1Id ? delivery1Token : delivery2Token;
 
     const startRes = await request(app)
-    .patch(`/api/delivery/${pickup.id}/status`)
-    .set("Authorization", `Bearer ${partnerToken}`)
-    .send({ status: "IN_TRANSIT" });
+      .patch(`/api/delivery/${pickup.id}/status`)
+      .set("Authorization", `Bearer ${partnerToken}`)
+      .send({ status: "IN_TRANSIT" });
 
     expect(startRes.status).toBe(200);
 
     const completeRes = await request(app)
-    .patch(`/api/delivery/${pickup.id}/status`)
-    .set("Authorization", `Bearer ${partnerToken}`)
-    .send({
-      status: "COMPLETED",
-      deliveryNotes: "Device collected and delivered to workshop.",
-    });
+      .patch(`/api/delivery/${pickup.id}/status`)
+      .set("Authorization", `Bearer ${partnerToken}`)
+      .send({
+        status: "COMPLETED",
+        deliveryNotes: "Device collected and delivered to workshop.",
+      });
 
     expect(completeRes.status).toBe(200);
 
     const updatedRepair = await request(app)
-    .get(`/api/repairs/${repairId}`)
-    .set("Authorization", `Bearer ${customer1Token}`);
+      .get(`/api/repairs/${repairId}`)
+      .set("Authorization", `Bearer ${customer1Token}`);
 
     expect(updatedRepair.body.data.status).toBe("UNDER_INSPECTION");
   });
@@ -828,6 +826,90 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(response.body.details).toEqual(
       expect.arrayContaining([expect.objectContaining({ field: "type" })]),
     );
+  });
+
+  it("rejects a failed delivery status without meaningful failure notes", async () => {
+    const response = await request(app)
+      .patch(`/api/delivery/${testDeliveryId}/status`)
+      .set("Authorization", `Bearer ${delivery1Token}`)
+      .send({
+        status: "FAILED",
+        deliveryNotes: "   ",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toBe("Validation failed");
+  });
+
+  it("rejects overlapping active trips for the same courier at the same time", async () => {
+    const repairRes = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Smartphone",
+        deviceBrand: "Samsung",
+        deviceModel: "Conflict Test",
+        issueDescription: "Device requires repair before delivery scheduling.",
+      });
+
+    expect(repairRes.status).toBe(201);
+    const repairId = repairRes.body.data.id;
+
+    // Make this independently created repair eligible for delivery.
+    const repairUpdate = await prisma.repairRequest.update({
+      where: { id: repairId },
+      data: { status: "REPAIR_COMPLETED" },
+    });
+    expect(repairUpdate.status).toBe("REPAIR_COMPLETED");
+
+    const scheduledAt = new Date(Date.now() + 5 * 86400000).toISOString();
+
+    const first = await request(app)
+      .post("/api/delivery/schedule")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        repairId,
+        type: "DELIVERY",
+        scheduledAt,
+        address: "First address, Nagpur",
+        assignedPartnerId: deliveryPartner1Id,
+      });
+
+    expect(first.status).toBe(201);
+
+    // Use another independently created eligible repair for the conflict.
+    const secondRepairRes = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer2Token}`)
+      .send({
+        deviceType: "Smartphone",
+        deviceBrand: "Samsung",
+        deviceModel: "Conflict Test 2",
+        issueDescription: "Second device requires repair before delivery.",
+      });
+
+    expect(secondRepairRes.status).toBe(201);
+    const secondRepairId = secondRepairRes.body.data.id;
+
+    await prisma.repairRequest.update({
+      where: { id: secondRepairId },
+      data: { status: "REPAIR_COMPLETED" },
+    });
+
+    const second = await request(app)
+      .post("/api/delivery/schedule")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        repairId: secondRepairId,
+        type: "DELIVERY",
+        scheduledAt,
+        address: "Second address, Nagpur",
+        assignedPartnerId: deliveryPartner1Id,
+      });
+
+    expect(second.status).toBe(409);
+    expect(second.body.success).toBe(false);
   });
 
   // --- 8. Failure Path 4 & Solution: Delivery Attempt Fails & Reverts Status for Reschedule ---

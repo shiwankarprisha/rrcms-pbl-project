@@ -697,6 +697,51 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(Number(completedDetailsRes.body.data.finalCost)).toBe(4500);
   });
 
+  it("rejects pickup scheduling with an invalid date", async () => {
+    const response = await request(app)
+      .post("/api/delivery/schedule")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        repairId: successRepairId,
+        type: "PICKUP",
+        scheduledAt: "not-a-date",
+        address: "Dharampeth, Nagpur",
+        assignedPartnerId: deliveryPartner1Id,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toBe("Validation failed");
+  });
+
+  it("rejects delivery scheduling with an invalid repair ID", async () => {
+    const response = await request(app)
+      .post("/api/delivery/schedule")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        repairId: -1,
+        type: "DELIVERY",
+        scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+        address: "Dharampeth, Nagpur",
+        assignedPartnerId: deliveryPartner1Id,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toBe("Validation failed");
+  });
+
+  it("rejects delivery partner assignment with an invalid partner ID", async () => {
+    const response = await request(app)
+      .post(`/api/delivery/${testDeliveryId}/assign`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ assignedPartnerId: -1 });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toBe("Validation failed");
+  });
+
   it("rejects delivery scheduling with an invalid delivery type", async () => {
     const response = await request(app)
       .post("/api/delivery/schedule")

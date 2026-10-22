@@ -1,0 +1,18 @@
+# RRCMS - Robots Exclusion Standard
+# Remote Repair Centre Management System (Nagpur Operations)
+
+User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /login
+Allow: /register
+
+# Disallow indexing of private dashboards, customer tickets & internal workflows
+Disallow: /customer/
+Disallow: /vendor/
+Disallow: /technician/
+Disallow: /delivery/
+Disallow: /admin/
+Disallow: /repairs/
+Disallow: /api/

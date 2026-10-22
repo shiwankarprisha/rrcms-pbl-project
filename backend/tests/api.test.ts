@@ -279,6 +279,34 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(res.body.error).toBe("Validation failed");
   });
 
+  it("rejects a whitespace-only issue description", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Smartphone",
+        issueDescription: "     ",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe("Validation failed");
+  });
+
+  it("rejects a device type exceeding 100 characters", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "A".repeat(101),
+        issueDescription: "Screen flickers during normal use.",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe("Validation failed");
+  });
+
   it("creates a repair request with the expected response fields", async () => {
     const res = await request(app)
       .post("/api/repairs")
@@ -493,6 +521,35 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
           entry.newStatus === "CANCELLED",
       ),
     ).toBe(true);
+  });
+
+  it("rejects assignment to a nonexistent technician", async () => {
+    await request(app)
+      .patch(`/api/repairs/${successRepairId}/verify`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({ decision: "ACCEPT", notes: "Approved for assignment test" });
+
+    await request(app)
+      .post(`/api/repairs/${successRepairId}/estimate`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({
+        estimatedCost: 4500,
+        estimatedDays: 3,
+        estimateNotes: "Assignment validation test",
+      });
+
+    await request(app)
+      .patch(`/api/repairs/${successRepairId}/estimate`)
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({ action: "APPROVE" });
+
+    const res = await request(app)
+      .post(`/api/repairs/${successRepairId}/assign`)
+      .set("Authorization", `Bearer ${vendorToken}`)
+      .send({ technicianId: 999999999, notes: "Invalid technician test" });
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
   });
 
   it("technicians only see repairs assigned to them", async () => {

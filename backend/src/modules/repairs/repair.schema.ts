@@ -32,6 +32,7 @@ export const createRepairSchema = z.object({
     ),
   issueDescription: z
     .string()
+    .trim()
     .min(5, "Issue description must be at least 5 characters"),
   pickupRequested: z
     .union([z.boolean(), z.string()])

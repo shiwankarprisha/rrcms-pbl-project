@@ -39,14 +39,18 @@ export class DeliveryService {
           repairId: input.repairId,
           type: DeliveryType.DELIVERY,
           status: {
-            in: [DeliveryStatus.SCHEDULED, DeliveryStatus.ASSIGNED, DeliveryStatus.IN_TRANSIT],
+            in: [
+              DeliveryStatus.SCHEDULED,
+              DeliveryStatus.ASSIGNED,
+              DeliveryStatus.IN_TRANSIT,
+            ],
           },
         },
       });
 
       if (existingActiveDelivery) {
         const error: any = new Error(
-          "Duplicate handover prevented: An active delivery schedule already exists for this repair"
+          "Duplicate handover prevented: An active delivery schedule already exists for this repair",
         );
         error.status = 409;
         throw error;
@@ -58,7 +62,7 @@ export class DeliveryService {
         repair.status !== RepairStatus.READY_FOR_PICKUP
       ) {
         const error: any = new Error(
-          `Cannot handover for delivery: Repair must be in 'REPAIR_COMPLETED' or 'READY_FOR_PICKUP' status (currently '${repair.status}')`
+          `Cannot handover for delivery: Repair must be in 'REPAIR_COMPLETED' or 'READY_FOR_PICKUP' status (currently '${repair.status}')`,
         );
         error.status = 400;
         throw error;
@@ -71,7 +75,9 @@ export class DeliveryService {
     // If no partner explicitly selected, automatically assign closest delivery partner based on shortest distance
     if (!assignedPartnerId) {
       try {
-        const routing = await NagpurRoutingService.findShortestDistancePartners(input.address);
+        const routing = await NagpurRoutingService.findShortestDistancePartners(
+          input.address,
+        );
         assignedPartnerId = routing.deliveryPartner.id;
         routingNote = ` Automatically routed via shortest distance to ${routing.deliveryPartner.name} (${routing.deliveryPartner.hubName}, ${routing.partnerDistanceKm} km away).`;
       } catch {
@@ -79,16 +85,24 @@ export class DeliveryService {
       }
     } else {
       const partner = await prisma.user.findFirst({
-        where: { id: assignedPartnerId, role: UserRole.DELIVERY_PARTNER, isActive: true },
+        where: {
+          id: assignedPartnerId,
+          role: UserRole.DELIVERY_PARTNER,
+          isActive: true,
+        },
       });
       if (!partner) {
-        const error: any = new Error("Specified delivery partner was not found or is inactive");
+        const error: any = new Error(
+          "Specified delivery partner was not found or is inactive",
+        );
         error.status = 404;
         throw error;
       }
     }
 
-    const initialStatus = assignedPartnerId ? DeliveryStatus.ASSIGNED : DeliveryStatus.SCHEDULED;
+    const initialStatus = assignedPartnerId
+      ? DeliveryStatus.ASSIGNED
+      : DeliveryStatus.SCHEDULED;
 
     return prisma.$transaction(async (tx) => {
       const delivery = await tx.pickupDelivery.create({
@@ -136,10 +150,10 @@ export class DeliveryService {
         repair.customerId,
         `${input.type} Scheduled`,
         `Your device (#${repair.requestNumber}) has a ${input.type.toLowerCase()} scheduled for ${new Date(
-          input.scheduledAt
+          input.scheduledAt,
         ).toLocaleDateString()} at ${input.address}.${routingNote}`,
         "INFO",
-        `/repairs/${repair.id}`
+        `/repairs/${repair.id}`,
       );
 
       // Notify assigned partner if assigned
@@ -148,10 +162,10 @@ export class DeliveryService {
           assignedPartnerId,
           `New ${input.type} Assignment`,
           `You have been assigned a ${input.type.toLowerCase()} trip for Repair #${repair.requestNumber} at ${input.address}. Scheduled for ${new Date(
-            input.scheduledAt
+            input.scheduledAt,
           ).toLocaleDateString()}.${routingNote}`,
           "INFO",
-          `/delivery/dashboard`
+          `/delivery/dashboard`,
         );
       }
 
@@ -236,14 +250,24 @@ export class DeliveryService {
       throw error;
     }
 
-    if (user.role === UserRole.CUSTOMER && delivery.repair.customerId !== user.id) {
-      const error: any = new Error("Access denied: You do not own this delivery record");
+    if (
+      user.role === UserRole.CUSTOMER &&
+      delivery.repair.customerId !== user.id
+    ) {
+      const error: any = new Error(
+        "Access denied: You do not own this delivery record",
+      );
       error.status = 403;
       throw error;
     }
 
-    if (user.role === UserRole.DELIVERY_PARTNER && delivery.assignedPartnerId !== user.id) {
-      const error: any = new Error("Access denied: You are not assigned to this delivery");
+    if (
+      user.role === UserRole.DELIVERY_PARTNER &&
+      delivery.assignedPartnerId !== user.id
+    ) {
+      const error: any = new Error(
+        "Access denied: You are not assigned to this delivery",
+      );
       error.status = 403;
       throw error;
     }
@@ -254,7 +278,11 @@ export class DeliveryService {
   /**
    * Assign Delivery Partner (Admin / Vendor)
    */
-  static async assignPartner(id: number, user: AuthUser, input: AssignDeliveryPartnerInput) {
+  static async assignPartner(
+    id: number,
+    user: AuthUser,
+    input: AssignDeliveryPartnerInput,
+  ) {
     const delivery = await prisma.pickupDelivery.findUnique({
       where: { id },
       include: { repair: true },
@@ -267,11 +295,17 @@ export class DeliveryService {
     }
 
     const partner = await prisma.user.findFirst({
-      where: { id: input.assignedPartnerId, role: UserRole.DELIVERY_PARTNER, isActive: true },
+      where: {
+        id: input.assignedPartnerId,
+        role: UserRole.DELIVERY_PARTNER,
+        isActive: true,
+      },
     });
 
     if (!partner) {
-      const error: any = new Error("Specified delivery partner was not found or is inactive");
+      const error: any = new Error(
+        "Specified delivery partner was not found or is inactive",
+      );
       error.status = 404;
       throw error;
     }
@@ -301,7 +335,7 @@ export class DeliveryService {
         "New Delivery Assignment",
         `You have been assigned a ${delivery.type.toLowerCase()} task for Repair #${delivery.repair.requestNumber} at ${delivery.address}.`,
         "INFO",
-        `/delivery/dashboard`
+        `/delivery/dashboard`,
       );
 
       return updated;
@@ -312,7 +346,11 @@ export class DeliveryService {
    * Update pickup/delivery status (Delivery Partner / Admin)
    * Synchronizes cross-module repair status and handles failures cleanly
    */
-  static async updateStatus(id: number, user: AuthUser, input: UpdateDeliveryStatusInput) {
+  static async updateStatus(
+    id: number,
+    user: AuthUser,
+    input: UpdateDeliveryStatusInput,
+  ) {
     const delivery = await prisma.pickupDelivery.findUnique({
       where: { id },
       include: {
@@ -329,8 +367,13 @@ export class DeliveryService {
       throw error;
     }
 
-    if (user.role === UserRole.DELIVERY_PARTNER && delivery.assignedPartnerId !== user.id) {
-      const error: any = new Error("Access denied: You are not assigned to this delivery");
+    if (
+      user.role === UserRole.DELIVERY_PARTNER &&
+      delivery.assignedPartnerId !== user.id
+    ) {
+      const error: any = new Error(
+        "Access denied: You are not assigned to this delivery",
+      );
       error.status = 403;
       throw error;
     }
@@ -371,23 +414,27 @@ export class DeliveryService {
           await NotificationService.createNotification(
             delivery.repair.customerId,
             "Device Out For Delivery",
-            `Your device (#${delivery.repair.requestNumber}) is OUT FOR DELIVERY today (${now.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}) by courier partner ${user.name}. Destination: ${delivery.address}.`,
+            `Your device (#${delivery.repair.requestNumber}) is OUT FOR DELIVERY today (${now.toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              },
+            )}) by courier partner ${user.name}. Destination: ${delivery.address}.`,
             "INFO",
-            `/repairs/${delivery.repair.id}`
+            `/repairs/${delivery.repair.id}`,
           );
         } else if (input.status === DeliveryStatus.COMPLETED) {
           synchronizedRepairStatus = RepairStatus.DELIVERED;
-          syncNote = "Device delivered to customer address. Awaiting customer receipt confirmation.";
+          syncNote =
+            "Device delivered to customer address. Awaiting customer receipt confirmation.";
 
           await NotificationService.createNotification(
             delivery.repair.customerId,
             "Device Delivered",
             `Your device (#${delivery.repair.requestNumber}) has been delivered! Please inspect it and confirm receipt on your dashboard to close the request.`,
             "SUCCESS",
-            `/customer/dashboard`
+            `/customer/dashboard`,
           );
         } else if (input.status === DeliveryStatus.FAILED) {
           // Revert repair status so it can be rescheduled cleanly!
@@ -399,7 +446,7 @@ export class DeliveryService {
             "Delivery Attempt Failed",
             `Delivery attempt failed for #${delivery.repair.requestNumber}: ${input.deliveryNotes || "Customer unavailable at address"}. A courier re-attempt will be scheduled.`,
             "WARNING",
-            `/repairs/${delivery.repair.id}`
+            `/repairs/${delivery.repair.id}`,
           );
         }
       } else if (delivery.type === DeliveryType.PICKUP) {
@@ -411,7 +458,7 @@ export class DeliveryService {
             "Courier En Route for Doorstep Pickup",
             `Courier partner ${user.name} is on the way to collect your device at ${delivery.address}.`,
             "INFO",
-            `/repairs/${delivery.repair.id}`
+            `/repairs/${delivery.repair.id}`,
           );
         } else if (input.status === DeliveryStatus.COMPLETED) {
           synchronizedRepairStatus = RepairStatus.UNDER_INSPECTION;
@@ -422,7 +469,7 @@ export class DeliveryService {
             "Device Picked Up Successfully",
             `Your device (#${delivery.repair.requestNumber}) has been collected by ${user.name} and delivered to the service centre for inspection.`,
             "SUCCESS",
-            `/repairs/${delivery.repair.id}`
+            `/repairs/${delivery.repair.id}`,
           );
 
           if (delivery.repair.vendorId) {
@@ -431,7 +478,7 @@ export class DeliveryService {
               "Device Delivered for Inspection",
               `Device for repair #${delivery.repair.requestNumber} has arrived at your workshop from doorstep pickup. Ready for inspection.`,
               "INFO",
-              `/vendor/dashboard`
+              `/vendor/dashboard`,
             );
           }
         } else if (input.status === DeliveryStatus.FAILED) {
@@ -443,12 +490,15 @@ export class DeliveryService {
             "Pickup Attempt Failed",
             `Pickup attempt failed for #${delivery.repair.requestNumber}: ${input.deliveryNotes || "Address unreachable"}. Please verify your address or coordinate with our team.`,
             "WARNING",
-            `/repairs/${delivery.repair.id}`
+            `/repairs/${delivery.repair.id}`,
           );
         }
       }
 
-      if (synchronizedRepairStatus && synchronizedRepairStatus !== delivery.repair.status) {
+      if (
+        synchronizedRepairStatus &&
+        synchronizedRepairStatus !== delivery.repair.status
+      ) {
         await tx.repairRequest.update({
           where: { id: delivery.repairId },
           data: { status: synchronizedRepairStatus },
@@ -472,7 +522,11 @@ export class DeliveryService {
   /**
    * Customer confirms receipt -> Closes repair request (SCRUM-28 & SCRUM-30)
    */
-  static async confirmReceipt(deliveryId: number, user: AuthUser, input: ConfirmReceiptInput) {
+  static async confirmReceipt(
+    deliveryId: number,
+    user: AuthUser,
+    input: ConfirmReceiptInput,
+  ) {
     const delivery = await prisma.pickupDelivery.findUnique({
       where: { id: deliveryId },
       include: { repair: true },
@@ -484,23 +538,30 @@ export class DeliveryService {
       throw error;
     }
 
-    if (delivery.repair.customerId !== user.id && user.role !== UserRole.ADMIN) {
-      const error: any = new Error("Only the customer who owns this repair can confirm receipt");
+    if (
+      delivery.repair.customerId !== user.id &&
+      user.role !== UserRole.ADMIN
+    ) {
+      const error: any = new Error(
+        "Only the customer who owns this repair can confirm receipt",
+      );
       error.status = 403;
       throw error;
     }
 
     // Must be in delivered or completed state
-    if (delivery.status !== DeliveryStatus.COMPLETED && delivery.status !== DeliveryStatus.IN_TRANSIT) {
+    if (delivery.status !== DeliveryStatus.COMPLETED) {
       const error: any = new Error(
-        `Cannot confirm receipt when delivery status is '${delivery.status}'. Device must be delivered first.`
+        `Cannot confirm receipt when delivery status is '${delivery.status}'. Device must be delivered first.`,
       );
       error.status = 400;
       throw error;
     }
 
     if (delivery.customerConfirmed) {
-      const error: any = new Error("Receipt has already been confirmed for this delivery");
+      const error: any = new Error(
+        "Receipt has already been confirmed for this delivery",
+      );
       error.status = 400;
       throw error;
     }
@@ -554,7 +615,7 @@ export class DeliveryService {
         "Repair Closed & Completed",
         `Thank you for using RRCMS! Repair #${delivery.repair.requestNumber} has been officially closed.`,
         "SUCCESS",
-        `/repairs/${delivery.repair.id}`
+        `/repairs/${delivery.repair.id}`,
       );
 
       return { delivery: updatedDelivery, repair: updatedRepair };

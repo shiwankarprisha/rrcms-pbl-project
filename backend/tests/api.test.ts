@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 import app from "../src/app.js";
+import { prisma } from "../src/prisma.js";
 
 describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", () => {
   let customer1Token: string;
@@ -769,6 +770,15 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(confirmRes.body.data.delivery.customerConfirmed).toBe(true);
     expect(confirmRes.body.data.repair.status).toBe("CLOSED");
     expect(confirmRes.body.data.repair.closedAt).toBeDefined();
+    expect(confirmRes.body.data.delivery.status).toBe("COMPLETED");
+    expect(confirmRes.body.data.delivery.confirmedAt).toBeDefined();
+
+    // Verify persisted final repair status
+    const closedRepair = await prisma.repairRequest.findUnique({
+      where: { id: successRepairId },
+    });
+    expect(closedRepair?.status).toBe("CLOSED");
+    expect(closedRepair?.closedAt).toBeDefined();
   });
 
   // --- Profile Retrieval Tests (SCRUM-123) ---

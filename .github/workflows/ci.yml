@@ -31,6 +31,7 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: "mysql://root:password@127.0.0.1:3306/rrcms_test"
+          SHADOW_DATABASE_URL: "mysql://root:password@127.0.0.1:3306/rrcms_shadow"
 
       - name: Typecheck and Compile Backend
         working-directory: backend

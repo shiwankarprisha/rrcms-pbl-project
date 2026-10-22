@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 import app from "../src/app.js";
 import { prisma } from "../src/prisma.js";
+import { send } from "process";
 
 describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", () => {
   let customer1Token: string;
@@ -422,6 +423,73 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       repairDetails.body.data.deliveries[0].assignedPartnerId,
     ).toBeDefined();
     expect(repairDetails.body.data.vendorId).toBeDefined();
+  });
+
+  it("rejects doorstep pickup when the pickup address is missing", async () => {
+    const res = await request(app)
+      .post("/api/repairs")
+      .set("Authorization", `Bearer ${customer1Token}`)
+      .send({
+        deviceType: "Laptop",
+        issueDescription: "Laptop screen flickers during use.",
+        pickupRequested: true,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("completing a doorstep pickup transitions repair to UNDER_INSPECTION", async () => {
+  const repairRes = await request(app)
+    .post("/api/repairs")
+    .set("Authorization", `Bearer ${customer1Token}`)
+    .send({
+      deviceType: "Laptop",
+      issueDescription: "Laptop keyboard is not responding.",
+      pickupRequested: true,
+      pickupAddress: "Flat 202, Dharampeth, Nagpur",
+    });
+
+    expect(repairRes.status).toBe(201);
+    const repairId = repairRes.body.data.id;
+
+    const detailsRes = await request(app)
+    .get(`/api/repairs/${repairId}`)
+    .set("Authorization", `Bearer ${customer1Token}`);
+
+    const pickup = detailsRes.body.data.deliveries.find(
+      (delivery: { type: string }) => delivery.type === "PICKUP",
+    );
+    expect(pickup).toBeDefined();
+
+    const partnerId = pickup.assignedPartnerId;
+    const partnerToken =
+    partnerId === deliveryPartner1Id
+      ? delivery1Token
+      : delivery2Token;
+
+    const startRes = await request(app)
+    .patch(`/api/delivery/${pickup.id}/status`)
+    .set("Authorization", `Bearer ${partnerToken}`)
+    .send({ status: "IN_TRANSIT" });
+
+    expect(startRes.status).toBe(200);
+
+    const completeRes = await request(app)
+    .patch(`/api/delivery/${pickup.id}/status`)
+    .set("Authorization", `Bearer ${partnerToken}`)
+    .send({
+      status: "COMPLETED",
+      deliveryNotes: "Device collected and delivered to workshop.",
+    });
+
+    expect(completeRes.status).toBe(200);
+
+    const updatedRepair = await request(app)
+    .get(`/api/repairs/${repairId}`)
+    .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(updatedRepair.body.data.status).toBe("UNDER_INSPECTION");
   });
 
   // --- 4. Failure Path 1: Request Rejection during Vendor Verification ---

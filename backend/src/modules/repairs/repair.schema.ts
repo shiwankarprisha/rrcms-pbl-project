@@ -1,55 +1,65 @@
 import { z } from "zod";
 
-export const createRepairSchema = z.object({
-  deviceType: z
-    .string()
-    .trim()
-    .min(1, "Device type is required")
-    .max(100, "Device type must not exceed 100 characters"),
-  deviceBrand: z
-    .string()
-    .max(100)
-    .optional()
-    .nullable()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined,
-    ),
-  deviceModel: z
-    .string()
-    .max(100)
-    .optional()
-    .nullable()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined,
-    ),
-  serialNumber: z
-    .string()
-    .max(100)
-    .optional()
-    .nullable()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined,
-    ),
-  issueDescription: z
-    .string()
-    .trim()
-    .min(5, "Issue description must be at least 5 characters"),
-  pickupRequested: z
-    .union([z.boolean(), z.string()])
-    .optional()
-    .transform((val) => {
-      if (typeof val === "string")
-        return val.toLowerCase() === "true" || val === "1";
-      return Boolean(val);
-    }),
-  pickupAddress: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) =>
-      val && val.trim().length > 0 ? val.trim() : undefined,
-    ),
-});
+export const createRepairSchema = z
+  .object({
+    deviceType: z
+      .string()
+      .trim()
+      .min(1, "Device type is required")
+      .max(100, "Device type must not exceed 100 characters"),
+    deviceBrand: z
+      .string()
+      .max(100)
+      .optional()
+      .nullable()
+      .transform((val) =>
+        val && val.trim().length > 0 ? val.trim() : undefined,
+      ),
+    deviceModel: z
+      .string()
+      .max(100)
+      .optional()
+      .nullable()
+      .transform((val) =>
+        val && val.trim().length > 0 ? val.trim() : undefined,
+      ),
+    serialNumber: z
+      .string()
+      .max(100)
+      .optional()
+      .nullable()
+      .transform((val) =>
+        val && val.trim().length > 0 ? val.trim() : undefined,
+      ),
+    issueDescription: z
+      .string()
+      .trim()
+      .min(5, "Issue description must be at least 5 characters"),
+    pickupRequested: z
+      .union([z.boolean(), z.string()])
+      .optional()
+      .transform((val) => {
+        if (typeof val === "string")
+          return val.toLowerCase() === "true" || val === "1";
+        return Boolean(val);
+      }),
+    pickupAddress: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((val) =>
+        val && val.trim().length > 0 ? val.trim() : undefined,
+      ),
+  })
+  .superRefine((data, ctx) => {
+    if (data.pickupRequested && !data.pickupAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pickupAddress"],
+        message: "Pickup address is required when doorstep pickup is requested",
+      });
+    }
+  });
 
 export const verifyRepairSchema = z.object({
   decision: z.enum(["ACCEPT", "REJECT"]),

@@ -883,6 +883,18 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
     expect(closedRepair?.closedAt).toBeDefined();
   });
 
+  it("rejects moving a completed delivery back to IN_TRANSIT", async () => {
+    const response = await request(app)
+      .patch(`/api/delivery/${testDeliveryId}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        status: "IN_TRANSIT",
+        deliveryNotes: "Regression test: invalid backward transition",
+      });
+
+    expect(response.status).toBe(400);
+  });
+
   // --- Profile Retrieval Tests (SCRUM-123) ---
 
   it("GET /api/auth/me returns the authenticated user's safe profile", async () => {

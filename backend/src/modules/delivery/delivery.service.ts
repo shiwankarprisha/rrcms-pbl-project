@@ -378,6 +378,20 @@ export class DeliveryService {
       throw error;
     }
 
+    // Prevent invalid transitions from terminal delivery states.
+    const terminalStatuses: DeliveryStatus[] = [
+      DeliveryStatus.COMPLETED,
+      DeliveryStatus.CANCELLED,
+    ];
+
+    if (terminalStatuses.includes(delivery.status)) {
+      const error: any = new Error(
+        `Cannot update delivery from terminal status '${delivery.status}'.`,
+      );
+      error.status = 400;
+      throw error;
+    }
+
     const now = new Date();
     const isCompleted = input.status === DeliveryStatus.COMPLETED;
 

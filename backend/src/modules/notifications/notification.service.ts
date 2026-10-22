@@ -6,7 +6,7 @@ export class NotificationService {
     title: string,
     message: string,
     type: "INFO" | "SUCCESS" | "WARNING" | "ALERT" = "INFO",
-    linkUrl?: string
+    linkUrl?: string,
   ) {
     try {
       return await prisma.notification.create({
@@ -43,6 +43,12 @@ export class NotificationService {
     return prisma.notification.updateMany({
       where: { userId, isRead: false },
       data: { isRead: true },
+    });
+  }
+
+  static async clearAll(userId: number) {
+    return prisma.notification.deleteMany({
+      where: { userId },
     });
   }
 }

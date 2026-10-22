@@ -1168,6 +1168,36 @@ describe("RRCMS Comprehensive API Test Suite (Success + Failure + Edge Cases)", 
       .patch("/api/notifications/read-all")
       .set("Authorization", `Bearer ${customer1Token}`);
     expect(readAllRes.status).toBe(200);
+
+    const customer2BeforeClear = await request(app)
+      .get("/api/notifications")
+      .set("Authorization", `Bearer ${customer2Token}`);
+
+    expect(customer2BeforeClear.status).toBe(200);
+    const customer2NotificationCount = customer2BeforeClear.body.data.length;
+
+    // Clear all notifications for the authenticated user
+    const clearRes = await request(app)
+      .delete("/api/notifications/clear-all")
+      .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(clearRes.status).toBe(200);
+
+    const afterClearRes = await request(app)
+      .get("/api/notifications")
+      .set("Authorization", `Bearer ${customer1Token}`);
+
+    expect(afterClearRes.status).toBe(200);
+    expect(afterClearRes.body.data).toHaveLength(0);
+
+    const customer2AfterClear = await request(app)
+      .get("/api/notifications")
+      .set("Authorization", `Bearer ${customer2Token}`);
+
+    expect(customer2AfterClear.status).toBe(200);
+    expect(customer2AfterClear.body.data).toHaveLength(
+      customer2NotificationCount,
+    );
   });
 
   // --- User Registration Tests (SCRUM-112) ---

@@ -91,4 +91,6 @@ export const api = {
   getNotifications: () => request<Notification[]>("/notifications"),
   markNotificationAsRead: (id: number) => request<{ message: string }>(`/notifications/${id}/read`, { method: "PATCH" }),
   markAllNotificationsAsRead: () => request<{ message: string }>("/notifications/read-all", { method: "PATCH" }),
+    clearAllNotifications: () =>
+    request<{ message: string }>("/notifications/clear-all", { method: "DELETE" }),
 };
